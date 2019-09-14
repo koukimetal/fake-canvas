@@ -46,7 +46,8 @@ type Item = {
 export const Canvas: React.SFC<{}> = () => {
   const [items, updateItems] = React.useState<{ [key: string]: Item }>({});
   const [idCount, updateIdCount] = React.useState<number>(1);
-  const [targetId, updateTargetId] = React.useState<number>(0);
+  const [moveTargetId, updateMoveTargetId] = React.useState<number>(0);
+  const [selectedId, updateSelectedId] = React.useState<number>(0);
   const [negateVector, updateNegateVector] = React.useState<Vector>(
     Vector.ORIGIN
   );
@@ -74,51 +75,69 @@ export const Canvas: React.SFC<{}> = () => {
 
   const catchShape = React.useCallback(
     (e: React.MouseEvent<Element, MouseEvent>, id: number) => {
-      updateTargetId(id);
+      updateMoveTargetId(id);
+      updateSelectedId(id);
       const vec = Vector.fromNativeEventOffset(e);
       updateNegateVector(vec.minus());
+      // stop propagation to avoid setting 0 as a selected id
+      e.stopPropagation();
+    },
+    []
+  );
+
+  const clickOnScreen = React.useCallback(
+    () => {
+      updateSelectedId(0);
     },
     []
   );
 
   const moveOnScreen = React.useCallback(
     (e: React.MouseEvent<Element, MouseEvent>) => {
-      if (!targetId) {
+      if (!moveTargetId) {
         return;
       }
       const currentPlace = Vector.fromEventClient(e);
       const newPlace = currentPlace.add(negateVector);
-      moveItem(newPlace, targetId);
+      moveItem(newPlace, moveTargetId);
     },
-    [negateVector, targetId, moveItem]
+    [negateVector, moveTargetId, moveItem]
   );
 
   const releaseOnScreen = React.useCallback(() => {
     updateNegateVector(Vector.ORIGIN);
-    updateTargetId(0);
+    updateMoveTargetId(0);
   }, []);
 
   return (
     <div>
       <div
-        style={{ position: "relative", width: 400, height: 400 }}
+        style={{ position: "relative", width: 400, height: 400, backgroundColor: "aliceblue" }}
         onMouseUp={releaseOnScreen}
         onMouseMove={moveOnScreen}
+        onMouseDown={clickOnScreen}
       >
         {Object.keys(items).map(id => {
           const item = items[id];
+          const idNumber = parseInt(id);
           return (
+            <div
+            style={{
+              position: "absolute",
+              top: item.v.y,
+              left: item.v.x,
+              backgroundColor: (selectedId === idNumber) ? "lightsalmon" : "unset"
+            }}
+            >
             <Turtle
               key={id}
               style={{
-                position: "absolute",
-                top: item.v.y,
-                left: item.v.x,
                 height: item.height,
                 width: item.width
               }}
               onMouseDown={e => catchShape(e, parseInt(id))}
-            ></Turtle>
+            />
+            </div>
           );
         })}
       </div>
