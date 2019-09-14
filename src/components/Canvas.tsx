@@ -1,5 +1,5 @@
 import React from "react";
-
+import { ReactComponent as Turtle } from './turtle.svg';
 enum Shape {
   Circle
 }
@@ -64,7 +64,7 @@ export const Canvas: React.SFC<{}> = () => {
   );
 
   const catchShape = React.useCallback(
-    (e: React.MouseEvent<HTMLDivElement, MouseEvent>, id: number) => {
+    (id: number) => {
       updateTargetId(id);
     },
     []
@@ -100,13 +100,18 @@ export const Canvas: React.SFC<{}> = () => {
         {Object.keys(items).map(id => {
           const item = items[id];
           return (
-            <div
+            <Turtle
               key={id}
-              style={{ position: "absolute", top: item.v.y, left: item.v.x }}
-              onMouseDown={e => catchShape(e, parseInt(id))}
+              style={{
+                  position: "absolute",
+                  top: item.v.y,
+                  left: item.v.x,
+                  height: item.height,
+                  width: item.width,
+                 }}
+              onMouseDown={() => catchShape(parseInt(id))}
             >
-              a
-            </div>
+            </Turtle>
           );
         })}
       </div>
