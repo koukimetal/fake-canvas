@@ -1,50 +1,93 @@
-import { useState, useCallback } from "react";
+import React from "react";
 
 enum Shape {
     Circle,
 }
 
+class Vector {
+    readonly x: number;
+    readonly y: number;
+    constructor(x: number, y: number) {
+        this.x = x;
+        this.y = y;
+    }
+
+    static fromEvent(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
+        return new Vector(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+    }
+
+    subtract(w: Vector) {
+        return new Vector(this.x - w.x, this.y - w.y);
+    }
+
+    add(w: Vector) {
+        return new Vector(this.x + w.x, this.y + w.y);
+    }
+}
+
 type Item = {
     readonly id: number;
     readonly shape: Shape;
-    readonly x: number;
-    readonly y: number;
+    readonly v: Vector;
     readonly height: number;
     readonly width: number;
 };
 
 export const Canvas: React.SFC<{}> = () => {
-    const [items, updateItems] = useState<{[key: string]: Item}>({});
-    const [idCount, updateIdCount] = useState<number>(1);
-    const [targetId, updateTargetId] = useState<number>(0);
+    const [items, updateItems] = React.useState<{[key: string]: Item}>({});
+    const [idCount, updateIdCount] = React.useState<number>(1);
+    const [targetId, updateTargetId] = React.useState<number>(0);
+    const [startVector, updateStartVector] = React.useState<Vector>(new Vector(0, 0));
 
-    const addItem = useCallback((item: Item) => {
+    const addItem = React.useCallback(() => {
+        const item: Item = {
+            shape: Shape.Circle, id: idCount, height: 20, width: 20, v: new Vector(0, 0)
+        };
         updateItems({...items, [idCount]: item});
         updateIdCount(idCount + 1);
-    }, [idCount]);
+    }, [items, idCount]);
 
-    const moveItem = useCallback((x: number, y: number) => {
-        const target = items[targetId];
-        const newItem = {...target, x, y};
-        updateItems({...items, [targetId]: newItem});
-    }, [targetId]);
+    const moveItem = React.useCallback((v: Vector, id: number) => {
+        const target = items[id];
+        const nextV = target.v.add(v);
+        const newItem = {...target, v: nextV};
+        updateItems({...items, [id]: newItem});
+    }, [items]);
 
-    const catchShape = useCallback((id: number) => {
+    const catchShape = React.useCallback((e: React.MouseEvent<HTMLDivElement, MouseEvent>, id: number) => {
         updateTargetId(id);
+        updateStartVector(Vector.fromEvent(e));
+        console.log('catch', id);
     }, []);
+
+    const releaseShape = React.useCallback((e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+        console.log(Vector.fromEvent(e));
+        if (!targetId) {
+            return;
+        }
+        const endVector = Vector.fromEvent(e);
+        const moveVector = endVector.subtract(startVector);
+        moveItem(moveVector, targetId);
+        updateTargetId(0);
+    }, [startVector, targetId]);
 
     return (
     <div>
-    <div style={{position: "relative", width: 400, height: 400}}>
+    <div style={{position: "relative", width: 400, height: 400}}
+    onMouseUp={(e) => releaseShape(e)}>
         {Object.keys(items).map(id => {
             const item = items[id];
             return (
-                <div style={{position: "absolute", top: item.y, left: item.x}}
-                onClick={() => catchShape(parseInt(id))}
-                
+                <div
+                key={id}
+                style={{position: "absolute", top: item.v.y, left: item.v.x}}
+                onMouseDown={(e) => catchShape(e, parseInt(id))}
                 >a</div>
             )
         })}
+        </div>
+        <div>
+            <button onClick={addItem}>Add</button>
         </div>
     </div>);
 
