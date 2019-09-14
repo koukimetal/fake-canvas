@@ -13,7 +13,7 @@ class Vector {
     }
 
     static fromEvent(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
-        return new Vector(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+        return new Vector(e.clientX, e.clientY);
     }
 
     subtract(w: Vector) {
@@ -56,8 +56,10 @@ export const Canvas: React.SFC<{}> = () => {
 
     const catchShape = React.useCallback((e: React.MouseEvent<HTMLDivElement, MouseEvent>, id: number) => {
         updateTargetId(id);
+    }, []);
+
+    const catchShapeOnScreen= React.useCallback((e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
         updateStartVector(Vector.fromEvent(e));
-        console.log('catch', id);
     }, []);
 
     const releaseShape = React.useCallback((e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
@@ -69,12 +71,14 @@ export const Canvas: React.SFC<{}> = () => {
         const moveVector = endVector.subtract(startVector);
         moveItem(moveVector, targetId);
         updateTargetId(0);
-    }, [startVector, targetId]);
+    }, [startVector, targetId, moveItem]);
 
     return (
     <div>
     <div style={{position: "relative", width: 400, height: 400}}
-    onMouseUp={(e) => releaseShape(e)}>
+    onMouseUp={(e) => releaseShape(e)}
+    onMouseDown={catchShapeOnScreen}
+    >
         {Object.keys(items).map(id => {
             const item = items[id];
             return (
@@ -89,6 +93,6 @@ export const Canvas: React.SFC<{}> = () => {
         <div>
             <button onClick={addItem}>Add</button>
         </div>
-    </div>);
-
+    </div>
+    );
 }
