@@ -1,5 +1,5 @@
 import React from "react";
-import { ReactComponent as Turtle } from './turtle.svg';
+import { ReactComponent as Turtle } from "./turtle.svg";
 enum Shape {
   Circle
 }
@@ -12,8 +12,14 @@ class Vector {
     this.y = y;
   }
 
-  static fromEvent(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
+  static readonly ORIGIN = new Vector(0, 0);
+
+  static fromEventClient(e: React.MouseEvent<Element, MouseEvent>) {
     return new Vector(e.clientX, e.clientY);
+  }
+
+  static fromNativeEventOffset(e: React.MouseEvent<Element, MouseEvent>) {
+    return new Vector(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
   }
 
   subtract(w: Vector) {
@@ -22,6 +28,10 @@ class Vector {
 
   add(w: Vector) {
     return new Vector(this.x + w.x, this.y + w.y);
+  }
+
+  minus() {
+    return new Vector(-this.x, -this.y);
   }
 }
 
@@ -37,8 +47,8 @@ export const Canvas: React.SFC<{}> = () => {
   const [items, updateItems] = React.useState<{ [key: string]: Item }>({});
   const [idCount, updateIdCount] = React.useState<number>(1);
   const [targetId, updateTargetId] = React.useState<number>(0);
-  const [startVector, updateStartVector] = React.useState<Vector>(
-    new Vector(0, 0)
+  const [negateVector, updateNegateVector] = React.useState<Vector>(
+    Vector.ORIGIN
   );
 
   const addItem = React.useCallback(() => {
@@ -47,7 +57,7 @@ export const Canvas: React.SFC<{}> = () => {
       id: idCount,
       height: 20,
       width: 20,
-      v: new Vector(0, 0)
+      v: Vector.ORIGIN
     };
     updateItems({ ...items, [idCount]: item });
     updateIdCount(idCount + 1);
@@ -56,46 +66,44 @@ export const Canvas: React.SFC<{}> = () => {
   const moveItem = React.useCallback(
     (v: Vector, id: number) => {
       const target = items[id];
-      const nextV = target.v.add(v);
-      const newItem = { ...target, v: nextV };
+      const newItem = { ...target, v };
       updateItems({ ...items, [id]: newItem });
     },
     [items]
   );
 
   const catchShape = React.useCallback(
-    (id: number) => {
+    (e: React.MouseEvent<Element, MouseEvent>, id: number) => {
       updateTargetId(id);
+      const vec = Vector.fromNativeEventOffset(e);
+      updateNegateVector(vec.minus());
     },
     []
   );
 
-  const catchShapeOnScreen = React.useCallback(
-    (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-      updateStartVector(Vector.fromEvent(e));
-    },
-    []
-  );
-
-  const releaseShape = React.useCallback(
-    (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+  const moveOnScreen = React.useCallback(
+    (e: React.MouseEvent<Element, MouseEvent>) => {
       if (!targetId) {
         return;
       }
-      const endVector = Vector.fromEvent(e);
-      const moveVector = endVector.subtract(startVector);
-      moveItem(moveVector, targetId);
-      updateTargetId(0);
+      const currentPlace = Vector.fromEventClient(e);
+      const newPlace = currentPlace.add(negateVector);
+      moveItem(newPlace, targetId);
     },
-    [startVector, targetId, moveItem]
+    [negateVector, targetId, moveItem]
   );
+
+  const releaseOnScreen = React.useCallback(() => {
+    updateNegateVector(Vector.ORIGIN);
+    updateTargetId(0);
+  }, []);
 
   return (
     <div>
       <div
         style={{ position: "relative", width: 400, height: 400 }}
-        onMouseUp={e => releaseShape(e)}
-        onMouseDown={catchShapeOnScreen}
+        onMouseUp={releaseOnScreen}
+        onMouseMove={moveOnScreen}
       >
         {Object.keys(items).map(id => {
           const item = items[id];
@@ -103,15 +111,14 @@ export const Canvas: React.SFC<{}> = () => {
             <Turtle
               key={id}
               style={{
-                  position: "absolute",
-                  top: item.v.y,
-                  left: item.v.x,
-                  height: item.height,
-                  width: item.width,
-                 }}
-              onMouseDown={() => catchShape(parseInt(id))}
-            >
-            </Turtle>
+                position: "absolute",
+                top: item.v.y,
+                left: item.v.x,
+                height: item.height,
+                width: item.width
+              }}
+              onMouseDown={e => catchShape(e, parseInt(id))}
+            ></Turtle>
           );
         })}
       </div>
