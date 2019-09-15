@@ -33,6 +33,10 @@ class Vector {
   minus() {
     return new Vector(-this.x, -this.y);
   }
+
+  dis() {
+    return Math.hypot(this.x, this.y);
+  }
 }
 
 type Item = {
@@ -41,6 +45,22 @@ type Item = {
   readonly v: Vector;
   readonly height: number;
   readonly width: number;
+  readonly degree: number;
+};
+
+const getDegree = (n: Vector) => {
+  const x = n.x;
+  const r = n.dis();
+  let theta1 = Math.acos(x / r) * (n.y >= 0 ? 1 : -1);
+  theta1 = (theta1 < 0) ? theta1 + Math.PI * 2 : theta1;
+  const d = (180 * theta1) / Math.PI;
+  return d;
+}
+
+const calculateRotation = (o: Vector, p: Vector) => {
+  const n = p.subtract(o);
+  const d = getDegree(n);
+  return d;
 };
 
 export const Canvas: React.SFC<{}> = () => {
@@ -56,6 +76,7 @@ export const Canvas: React.SFC<{}> = () => {
   const [negateVector, updateNegateVector] = React.useState<Vector>(
     Vector.ORIGIN
   );
+  const [isRotating, updateIsRotating] = React.useState<boolean>(false);
 
   const addItem = React.useCallback(() => {
     const item: Item = {
@@ -63,6 +84,7 @@ export const Canvas: React.SFC<{}> = () => {
       id: idCount,
       height: 20,
       width: 20,
+      degree: 0,
       v: Vector.ORIGIN
     };
     updateItems({ ...items, [idCount]: item });
@@ -91,6 +113,17 @@ export const Canvas: React.SFC<{}> = () => {
     [items]
   );
 
+  const rotateItem = React.useCallback(
+    (degree: number, id: number) => {
+      const target = items[id];
+      const newItem = {
+        ...target, degree
+      };
+      updateItems({...items, [id]: newItem});
+    },
+    [items]
+  );
+
   const catchShape = React.useCallback(
     (e: React.MouseEvent<Element, MouseEvent>, id: number) => {
       updateMoveTargetId(id);
@@ -107,7 +140,7 @@ export const Canvas: React.SFC<{}> = () => {
     (e: React.MouseEvent<Element, MouseEvent>) => {
       updateSelectedId(0);
     },
-    [isExpanding]
+    []
   );
 
   const moveOnScreen = React.useCallback(
@@ -123,13 +156,26 @@ export const Canvas: React.SFC<{}> = () => {
         resizeItem(diff, selectedId);
         updatePreviousExpansionPosition(currentPosition);
       }
+      if (isRotating && selectedId) {
+        const item = items[selectedId];
+        const origin = new Vector(item.v.x + (item.width/2), item.v.y + (item.height/2));
+        const currentPosition = Vector.fromEventClient(e);
+
+        // Since "r" is located after 90 degree, we need to subtract 90.
+        const degree = calculateRotation(origin, currentPosition) - 90;
+        console.log(degree);
+        rotateItem(degree, selectedId);
+      }
     },
     [
+      items,
       negateVector,
       moveTargetId,
       moveItem,
       isExpanding,
+      isRotating,
       previousExpansionPosition,
+      rotateItem,
       selectedId,
       resizeItem
     ]
@@ -140,6 +186,7 @@ export const Canvas: React.SFC<{}> = () => {
     updateMoveTargetId(0);
     updateIsExpanding(false);
     updatePreviousExpansionPosition(Vector.ORIGIN);
+    updateIsRotating(false);
   }, []);
 
   const clickExpand = React.useCallback(
@@ -151,6 +198,15 @@ export const Canvas: React.SFC<{}> = () => {
     },
     []
   );
+
+
+  const clickRotate = React.useCallback(
+    (e: React.MouseEvent<Element, MouseEvent>, id: number) => {
+      updateIsRotating(true);
+      updateSelectedId(id);
+      e.stopPropagation();
+    }
+  , []);
 
   return (
     <div>
@@ -174,6 +230,7 @@ export const Canvas: React.SFC<{}> = () => {
                 position: "absolute",
                 top: item.v.y,
                 left: item.v.x,
+                transform: `rotate(${item.degree}deg)`,
                 backgroundColor:
                   selectedId === idNumber ? "lightsalmon" : "unset"
               }}
@@ -203,6 +260,17 @@ export const Canvas: React.SFC<{}> = () => {
                   onMouseDown={e => clickExpand(e, idNumber)}
                 >
                   x
+                </div>
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: item.height + 1,
+                    userSelect: 'none'
+                  }}
+                  onMouseDown={e => clickRotate(e, idNumber)}
+                >
+                  r
                 </div>
               </div>
             </div>
