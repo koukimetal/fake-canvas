@@ -94,7 +94,14 @@ export const Canvas: React.SFC<{}> = () => {
     Vector.ORIGIN
   );
   const [isRotating, updateIsRotating] = React.useState<boolean>(false);
-
+  const [
+    rotationStartPointDegree,
+    updateRotationStartPointDegree
+  ] = React.useState<number>(0);
+  const [
+    rotationOriginalItemDegree,
+    updateRotationOriginalItemDegree
+  ] = React.useState<number>(0);
   const addItem = React.useCallback(() => {
     const item: Item = {
       shape: Shape.Circle,
@@ -186,9 +193,9 @@ export const Canvas: React.SFC<{}> = () => {
         );
         const currentPosition = Vector.fromEventClient(e);
 
-        // Since "r" is located after 90 degree, we need to subtract 90.
-        const degree = calculateRotation(origin, currentPosition) - 90;
-        console.log(degree);
+        const degreeDiff =
+          calculateRotation(origin, currentPosition) - rotationStartPointDegree;
+        const degree = rotationOriginalItemDegree + degreeDiff;
         rotateItem(degree, selectedId);
       }
     },
@@ -199,7 +206,10 @@ export const Canvas: React.SFC<{}> = () => {
       moveItem,
       beforeExpandedSizeVector,
       isExpanding,
+      expansionStartPosition,
       isRotating,
+      rotationStartPointDegree,
+      rotationOriginalItemDegree,
       rotateItem,
       selectedId,
       resizeItem
@@ -213,6 +223,7 @@ export const Canvas: React.SFC<{}> = () => {
     updateExpansionStartPosition(Vector.ORIGIN);
     updateBeforeExpandedSizeVector(Vector.ORIGIN);
     updateIsRotating(false);
+    updateRotationStartPointDegree(0);
   }, []);
 
   const clickExpand = React.useCallback(
@@ -232,9 +243,18 @@ export const Canvas: React.SFC<{}> = () => {
     (e: React.MouseEvent<Element, MouseEvent>, id: number) => {
       updateIsRotating(true);
       updateSelectedId(id);
+      const item = items[id];
+      const origin = new Vector(
+        item.v.x + item.width / 2,
+        item.v.y + item.height / 2
+      );
+      const rPoint = Vector.fromEventClient(e);
+      const degree = getDegree(rPoint.subtract(origin));
+      updateRotationOriginalItemDegree(item.degree);
+      updateRotationStartPointDegree(degree);
       e.stopPropagation();
     },
-    []
+    [items]
   );
 
   return (
