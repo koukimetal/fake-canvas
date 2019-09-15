@@ -48,6 +48,11 @@ export const Canvas: React.SFC<{}> = () => {
   const [idCount, updateIdCount] = React.useState<number>(1);
   const [moveTargetId, updateMoveTargetId] = React.useState<number>(0);
   const [selectedId, updateSelectedId] = React.useState<number>(0);
+  const [isExpanding, updateIsExpanding] = React.useState<boolean>(false);
+  const [
+    previousExpansionPosition,
+    updatePreviousExpansionPosition
+  ] = React.useState<Vector>(Vector.ORIGIN);
   const [negateVector, updateNegateVector] = React.useState<Vector>(
     Vector.ORIGIN
   );
@@ -73,6 +78,19 @@ export const Canvas: React.SFC<{}> = () => {
     [items]
   );
 
+  const resizeItem = React.useCallback(
+    (v: Vector, id: number) => {
+      const target = items[id];
+      const newItem = {
+        ...target,
+        height: target.height + v.y,
+        width: target.width + v.x
+      };
+      updateItems({ ...items, [id]: newItem });
+    },
+    [items]
+  );
+
   const catchShape = React.useCallback(
     (e: React.MouseEvent<Element, MouseEvent>, id: number) => {
       updateMoveTargetId(id);
@@ -86,33 +104,63 @@ export const Canvas: React.SFC<{}> = () => {
   );
 
   const clickOnScreen = React.useCallback(
-    () => {
+    (e: React.MouseEvent<Element, MouseEvent>) => {
       updateSelectedId(0);
     },
-    []
+    [isExpanding]
   );
 
   const moveOnScreen = React.useCallback(
     (e: React.MouseEvent<Element, MouseEvent>) => {
-      if (!moveTargetId) {
-        return;
+      if (moveTargetId) {
+        const currentPlace = Vector.fromEventClient(e);
+        const newPlace = currentPlace.add(negateVector);
+        moveItem(newPlace, moveTargetId);
       }
-      const currentPlace = Vector.fromEventClient(e);
-      const newPlace = currentPlace.add(negateVector);
-      moveItem(newPlace, moveTargetId);
+      if (isExpanding && selectedId) {
+        const currentPosition = Vector.fromEventClient(e);
+        const diff = currentPosition.subtract(previousExpansionPosition);
+        resizeItem(diff, selectedId);
+        updatePreviousExpansionPosition(currentPosition);
+      }
     },
-    [negateVector, moveTargetId, moveItem]
+    [
+      negateVector,
+      moveTargetId,
+      moveItem,
+      isExpanding,
+      previousExpansionPosition,
+      selectedId,
+      resizeItem
+    ]
   );
 
   const releaseOnScreen = React.useCallback(() => {
     updateNegateVector(Vector.ORIGIN);
     updateMoveTargetId(0);
+    updateIsExpanding(false);
+    updatePreviousExpansionPosition(Vector.ORIGIN);
   }, []);
+
+  const clickExpand = React.useCallback(
+    (e: React.MouseEvent<Element, MouseEvent>, id: number) => {
+      updateIsExpanding(true);
+      updateSelectedId(id);
+      updatePreviousExpansionPosition(Vector.fromEventClient(e));
+      e.stopPropagation();
+    },
+    []
+  );
 
   return (
     <div>
       <div
-        style={{ position: "relative", width: 400, height: 400, backgroundColor: "aliceblue" }}
+        style={{
+          position: "relative",
+          width: 400,
+          height: 400,
+          backgroundColor: "aliceblue"
+        }}
         onMouseUp={releaseOnScreen}
         onMouseMove={moveOnScreen}
         onMouseDown={clickOnScreen}
@@ -122,21 +170,38 @@ export const Canvas: React.SFC<{}> = () => {
           const idNumber = parseInt(id);
           return (
             <div
-            style={{
-              position: "absolute",
-              top: item.v.y,
-              left: item.v.x,
-              backgroundColor: (selectedId === idNumber) ? "lightsalmon" : "unset"
-            }}
-            >
-            <Turtle
-              key={id}
               style={{
-                height: item.height,
-                width: item.width
+                position: "absolute",
+                top: item.v.y,
+                left: item.v.x,
+                backgroundColor:
+                  selectedId === idNumber ? "lightsalmon" : "unset"
               }}
-              onMouseDown={e => catchShape(e, parseInt(id))}
-            />
+              key={id}
+            >
+              <div
+                style={{
+                  position: "relative"
+                }}
+              >
+                <Turtle
+                  style={{
+                    height: item.height,
+                    width: item.width
+                  }}
+                  onMouseDown={e => catchShape(e, idNumber)}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    left: item.width + 1,
+                    top: item.height + 1
+                  }}
+                  onMouseDown={e => clickExpand(e, idNumber)}
+                >
+                  x
+                </div>
+              </div>
             </div>
           );
         })}
