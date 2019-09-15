@@ -181,13 +181,15 @@ export const Canvas: React.SFC<{}> = () => {
             >
               <div
                 style={{
-                  position: "relative"
+                  position: "relative",
+                  height: item.height,
+                  width: item.width
                 }}
               >
                 <Turtle
                   style={{
-                    height: item.height,
-                    width: item.width
+                    height: 'inherit',
+                    width: 'inherit'
                   }}
                   onMouseDown={e => catchShape(e, idNumber)}
                 />
@@ -195,7 +197,8 @@ export const Canvas: React.SFC<{}> = () => {
                   style={{
                     position: "absolute",
                     left: item.width + 1,
-                    top: item.height + 1
+                    top: item.height + 1,
+                    userSelect: 'none'
                   }}
                   onMouseDown={e => clickExpand(e, idNumber)}
                 >
