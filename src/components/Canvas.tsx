@@ -52,15 +52,29 @@ const getDegree = (n: Vector) => {
   const x = n.x;
   const r = n.dis();
   let theta1 = Math.acos(x / r) * (n.y >= 0 ? 1 : -1);
-  theta1 = (theta1 < 0) ? theta1 + Math.PI * 2 : theta1;
+  theta1 = theta1 < 0 ? theta1 + Math.PI * 2 : theta1;
   const d = (180 * theta1) / Math.PI;
   return d;
-}
+};
 
 const calculateRotation = (o: Vector, p: Vector) => {
   const n = p.subtract(o);
   const d = getDegree(n);
   return d;
+};
+
+/*
+  h (cos(t + 90), sin(t + 90)) +
+  w (cost(t), sint(t)) =
+  (x, y)
+  h = ycos(t) - xsin(t), w = ysin(t) + xcos(t)
+*/
+const calculateExpansion = (o: Vector, p: Vector, d: number) => {
+  const n = p.subtract(o);
+  const dpi = (d / 360) * (2 * Math.PI);
+  const h = n.y * Math.cos(dpi) - n.x * Math.sin(dpi);
+  const w = n.y * Math.sin(dpi) + n.x * Math.cos(dpi);
+  return new Vector(w, h);
 };
 
 export const Canvas: React.SFC<{}> = () => {
@@ -70,9 +84,12 @@ export const Canvas: React.SFC<{}> = () => {
   const [selectedId, updateSelectedId] = React.useState<number>(0);
   const [isExpanding, updateIsExpanding] = React.useState<boolean>(false);
   const [
-    previousExpansionPosition,
-    updatePreviousExpansionPosition
+    beforeExpandedSizeVector,
+    updateBeforeExpandedSizeVector
   ] = React.useState<Vector>(Vector.ORIGIN);
+  const [expansionStartPosition, updateExpansionStartPosition] = React.useState<
+    Vector
+  >(Vector.ORIGIN);
   const [negateVector, updateNegateVector] = React.useState<Vector>(
     Vector.ORIGIN
   );
@@ -101,12 +118,12 @@ export const Canvas: React.SFC<{}> = () => {
   );
 
   const resizeItem = React.useCallback(
-    (v: Vector, id: number) => {
+    (height: number, width: number, id: number) => {
       const target = items[id];
       const newItem = {
         ...target,
-        height: target.height + v.y,
-        width: target.width + v.x
+        height,
+        width
       };
       updateItems({ ...items, [id]: newItem });
     },
@@ -117,9 +134,10 @@ export const Canvas: React.SFC<{}> = () => {
     (degree: number, id: number) => {
       const target = items[id];
       const newItem = {
-        ...target, degree
+        ...target,
+        degree
       };
-      updateItems({...items, [id]: newItem});
+      updateItems({ ...items, [id]: newItem });
     },
     [items]
   );
@@ -152,13 +170,20 @@ export const Canvas: React.SFC<{}> = () => {
       }
       if (isExpanding && selectedId) {
         const currentPosition = Vector.fromEventClient(e);
-        const diff = currentPosition.subtract(previousExpansionPosition);
-        resizeItem(diff, selectedId);
-        updatePreviousExpansionPosition(currentPosition);
+        const diff = calculateExpansion(
+          expansionStartPosition,
+          currentPosition,
+          items[selectedId].degree
+        );
+        const resized = beforeExpandedSizeVector.add(diff);
+        resizeItem(resized.y, resized.x, selectedId);
       }
       if (isRotating && selectedId) {
         const item = items[selectedId];
-        const origin = new Vector(item.v.x + (item.width/2), item.v.y + (item.height/2));
+        const origin = new Vector(
+          item.v.x + item.width / 2,
+          item.v.y + item.height / 2
+        );
         const currentPosition = Vector.fromEventClient(e);
 
         // Since "r" is located after 90 degree, we need to subtract 90.
@@ -172,9 +197,9 @@ export const Canvas: React.SFC<{}> = () => {
       negateVector,
       moveTargetId,
       moveItem,
+      beforeExpandedSizeVector,
       isExpanding,
       isRotating,
-      previousExpansionPosition,
       rotateItem,
       selectedId,
       resizeItem
@@ -185,7 +210,8 @@ export const Canvas: React.SFC<{}> = () => {
     updateNegateVector(Vector.ORIGIN);
     updateMoveTargetId(0);
     updateIsExpanding(false);
-    updatePreviousExpansionPosition(Vector.ORIGIN);
+    updateExpansionStartPosition(Vector.ORIGIN);
+    updateBeforeExpandedSizeVector(Vector.ORIGIN);
     updateIsRotating(false);
   }, []);
 
@@ -193,20 +219,23 @@ export const Canvas: React.SFC<{}> = () => {
     (e: React.MouseEvent<Element, MouseEvent>, id: number) => {
       updateIsExpanding(true);
       updateSelectedId(id);
-      updatePreviousExpansionPosition(Vector.fromEventClient(e));
+      updateExpansionStartPosition(Vector.fromEventClient(e));
+      updateBeforeExpandedSizeVector(
+        new Vector(items[id].width, items[id].height)
+      );
       e.stopPropagation();
     },
-    []
+    [items]
   );
-
 
   const clickRotate = React.useCallback(
     (e: React.MouseEvent<Element, MouseEvent>, id: number) => {
       updateIsRotating(true);
       updateSelectedId(id);
       e.stopPropagation();
-    }
-  , []);
+    },
+    []
+  );
 
   return (
     <div>
@@ -245,8 +274,8 @@ export const Canvas: React.SFC<{}> = () => {
               >
                 <Turtle
                   style={{
-                    height: 'inherit',
-                    width: 'inherit'
+                    height: "inherit",
+                    width: "inherit"
                   }}
                   onMouseDown={e => catchShape(e, idNumber)}
                 />
@@ -255,7 +284,7 @@ export const Canvas: React.SFC<{}> = () => {
                     position: "absolute",
                     left: item.width + 1,
                     top: item.height + 1,
-                    userSelect: 'none'
+                    userSelect: "none"
                   }}
                   onMouseDown={e => clickExpand(e, idNumber)}
                 >
@@ -266,7 +295,7 @@ export const Canvas: React.SFC<{}> = () => {
                     position: "absolute",
                     left: 0,
                     top: item.height + 1,
-                    userSelect: 'none'
+                    userSelect: "none"
                   }}
                   onMouseDown={e => clickRotate(e, idNumber)}
                 >
